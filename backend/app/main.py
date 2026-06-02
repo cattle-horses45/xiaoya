@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.config import settings
 
@@ -22,12 +24,12 @@ app.add_middleware(
 
 # API routes
 from app.routes import auth, products, admin, cart, orders, chat
-app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
-app.include_router(products.router, prefix="/api", tags=["商品"])
-app.include_router(admin.router, prefix="/api/admin", tags=["管理员"])
-app.include_router(cart.router, prefix="/api/cart", tags=["购物车"])
-app.include_router(orders.router, prefix="/api/orders", tags=["订单"])
-app.include_router(chat.router, prefix="/api/chat", tags=["AI对话"])
+app.include_router(auth.router, prefix="/api/auth", tags=["AUTH"])
+app.include_router(products.router, prefix="/api", tags=["PRODUCTS"])
+app.include_router(admin.router, prefix="/api/admin", tags=["ADMIN"])
+app.include_router(cart.router, prefix="/api/cart", tags=["CART"])
+app.include_router(orders.router, prefix="/api/orders", tags=["ORDERS"])
+app.include_router(chat.router, prefix="/api/chat", tags=["CHAT"])
 
 
 @app.get("/api/health")
@@ -35,10 +37,22 @@ async def health():
     return {"status": "ok"}
 
 
-# Serve frontend static files
-_static = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-if os.path.isdir(_static):
-    _assets = os.path.join(_static, "assets")
-    if os.path.isdir(_assets):
-        app.mount("/assets", StaticFiles(directory=_assets), name="assets")
-    app.mount("/", StaticFiles(directory=_static, html=True), name="static")
+# Static files & SPA
+HERE = Path(__file__).resolve().parent.parent
+STATIC = HERE / "static"
+ASSETS = STATIC / "assets"
+
+if ASSETS.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS)), name="assets")
+
+
+@app.get("/{spa_path:path}")
+async def serve_frontend(spa_path: str):
+    """Serve frontend SPA - returns index.html for any non-API, non-file path."""
+    if spa_path.startswith("api"):
+        return {"detail": "Not Found"}
+
+    full = STATIC / spa_path
+    if full.is_file():
+        return FileResponse(str(full))
+    return FileResponse(str(STATIC / "index.html"))
