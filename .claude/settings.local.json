@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)",
+      "Bash(cp \"C:/Users/pengwu/Desktop/鸭梨手机/大数据机器学习III 测评要求 - 副本.docx\" /tmp/doc.docx)",
+      "Read(//tmp/**)",
+      "Bash(where python *)",
+      "Bash(/c/Users/pengwu/miniconda3/python *)",
+      "Bash(/c/Users/pengwu/miniconda/python *)",
+      "Bash(/c/Users/pengwu/Anaconda3/python.exe *)",
+      "Bash(start *)",
+      "Skill(skill-creator)"
+    ]
+  }
+}
