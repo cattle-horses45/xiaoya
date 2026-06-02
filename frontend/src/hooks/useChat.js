@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { createSession, sendMessage } from '../services/chatService'
+import { createSession, sendMessageStream } from '../services/chatService'
 
 export function useChat() {
   const [messages, setMessages] = useState([])
@@ -26,23 +26,65 @@ export function useChat() {
   const send = useCallback(async (text) => {
     if (!text.trim()) return
 
+    // Add user message
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     setIsLoading(true)
 
-    try {
-      const res = await sendMessage(text, sessionToken.current)
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: res.reply, isTransfer: res.is_transfer },
-      ])
-    } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '抱歉，我暂时无法回复，请稍后再试。如果问题紧急，请拨打客服热线 400-888-XXXX。' },
-      ])
-    } finally {
-      setIsLoading(false)
+    // Add a placeholder assistant message that will be updated with streaming content
+    setMessages((prev) => [...prev, { role: 'assistant', content: '', isStreaming: true }])
+
+    const updateLastMessage = (content) => {
+      setMessages((prev) => {
+        const updated = [...prev]
+        const lastIdx = updated.length - 1
+        if (updated[lastIdx]?.isStreaming) {
+          updated[lastIdx] = { ...updated[lastIdx], content }
+        }
+        return updated
+      })
     }
+
+    const finalizeMessage = () => {
+      setMessages((prev) => {
+        const updated = [...prev]
+        const lastIdx = updated.length - 1
+        if (updated[lastIdx]) {
+          updated[lastIdx] = { ...updated[lastIdx], isStreaming: false }
+        }
+        return updated
+      })
+    }
+
+    await sendMessageStream(
+      text,
+      sessionToken.current,
+      // onChunk
+      (chunk) => {
+        setMessages((prev) => {
+          const updated = [...prev]
+          const lastIdx = updated.length - 1
+          if (updated[lastIdx]?.isStreaming) {
+            updated[lastIdx] = {
+              ...updated[lastIdx],
+              content: updated[lastIdx].content + chunk,
+            }
+          }
+          return updated
+        })
+      },
+      // onDone
+      () => {
+        finalizeMessage()
+        setIsLoading(false)
+      },
+      // onError
+      (error) => {
+        console.error('Stream error:', error)
+        updateLastMessage('抱歉，我暂时无法回复，请稍后再试。')
+        finalizeMessage()
+        setIsLoading(false)
+      }
+    )
   }, [])
 
   const newSession = useCallback(async () => {
